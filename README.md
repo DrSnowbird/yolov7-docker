@@ -1,5 +1,6 @@
-# Yolov7 Docker (Python 3.8 build - CPU default) with Web File Server to store/view Results
+# Yolov7 Docker (Python 3.8 build - CPU default)
 * Simple BASH commands to Build or Run.
+* (To-Add): with Web File Server to store/view Results
 
 ## Build (! Do this First)
 If you like  to build your local image, simply run the build.sh command as below:
@@ -86,7 +87,7 @@ runs
 ```
 
 ----
-# (Inherited from upstream)
+# (Inherited from [WongKinYiu / yolov7](https://github.com/WongKinYiu/yolov7))
 ----
 
 # Official YOLOv7
