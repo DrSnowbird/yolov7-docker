@@ -1,4 +1,4 @@
-# Yolov7 Docker (Python 3.8 build - CPU default)
+# Yolov7 Docker (Python 3.8 build - CPU / GPU auto-detect)
 * Simple BASH commands to Build or Run.
 * (To-Add): with Web File Server to store/view Results
 
