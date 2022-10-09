@@ -2,7 +2,7 @@
 # login first (Registry: e.g., hub.docker.io, registry.localhost:5000, etc.)
 # a.)  docker login
 # or
-# b.) docker login -p FpXM6Qy9vVL5kPeoefzxwA-oaYb-Wpej2iXTwV7UHYs -e unused -u unused docker-registry-default.openkbs.org
+# b.) sudo docker login -p FpXM6Qy9vVL5kPeoefzxwA-oaYb-Wpej2iXTwV7UHYs -e unused -u unused docker-registry-default.openkbs.org
 # e.g. (using Openshift)
 #    oc process -f ./files/deployments/template.yml -v API_NAME=$(REGISTRY_IMAGE) > template.active
 #
@@ -23,7 +23,7 @@ BASE_IMAGE := $(BASE_IMAGE)
 
 # The name of the container (default is current directory name)
 #DOCKER_NAME := $(shell echo $${PWD\#\#*/})
-DOCKER_NAME := $(shell echo $${PWD\#\#*/}|tr '[:upper:]' '[:lower:]'|tr "/: " "_" )
+DOCKER_NAME := $(shell echo $${PWD##*/}|tr '[:upper:]' '[:lower:]'|tr "/: " "_" )
 
 ORGANIZATION=$(shell echo $${ORGANIZATION:-openkbs})
 APP_VERSION=$(shell echo $${APP_VERSION:-latest})
@@ -55,6 +55,8 @@ RESTART_OPTION := always
 
 SHA := $(shell git describe --match=NeVeRmAtCh --always --abbrev=40 --dirty=*)
 
+TIME_START := $(shell date +%s)
+
 .PHONY: clean rmi build push pull up down run stop exec
 
 clean:
@@ -64,12 +66,11 @@ default: build
 
 build:
 	docker build \
-	--build-arg BASE_IMAGE="$(BASE_IMAGE)" \
-	--build-arg CIRCLE_SHA1="$(SHA)" \
-	--build-arg version=$(VERSION) \
-	--build-arg VCS_REF=`git rev-parse --short HEAD` \
-	--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
 	-t $(DOCKER_IMAGE):$(VERSION) .
+
+build-rm:
+	docker build --force-rm --no-cache \
+		-t $(DOCKER_IMAGE):$(VERSION) .
 
 push: build
 	docker commit -m "$comment" ${containerID} ${imageTag}:$(VERSION)
@@ -83,6 +84,7 @@ push: build
 		mkdir -p $(IMAGE_EXPORT_PATH); \
 		docker save $(REGISTRY_IMAGE):$(VERSION) | gzip > $(IMAGE_EXPORT_PATH)/$(DOCKER_NAME)_$(VERSION).tar.gz; \
 	fi
+	
 pull:
 	@if [ "$(REGISTRY_HOST)" = "" ]; then \
 		docker pull $(DOCKER_IMAGE):$(VERSION) ; \
@@ -90,23 +92,41 @@ pull:
 		docker pull $(REGISTRY_IMAGE):$(VERSION) ; \
 	fi
 
-
+install:
+	./local-install.sh
+	
 up:
 	bin/auto-config-all.sh
-	./run.sh -c
-	#docker-compose up 
+	docker-compose up --remove-orphans -d yolov5-fileserver yolov5-mongo yolov5-mongo-express
+
+up-fileserver:
+	docker-compose up -d yolov5-fileserver
+
+up-mongo:
+	docker-compose up -d yolov5-mongo
+
+up-mongo-express: 
+	docker-compose up -d yolov5-mongo-express
 
 down:
 	docker-compose down
+	docker ps | grep $(DOCKER_IMAGE)
+	@echo ">>> Total Dockder images Build using time in seconds: $$(($$(date +%s)-$(TIME_START))) seconds"
 
+down-rm:
+	docker-compose down -v --rmi all --remove-orphans
+	docker ps | grep $(DOCKER_IMAGE)
+	@echo ">>> Total Dockder images Build using time in seconds: $$(($$(date +%s)-$(TIME_START))) seconds"
+
+## -- dev/debug -- ##
 run:
 	docker run --name=$(DOCKER_NAME) --restart=$(RESTART_OPTION) $(VOLUME_MAP) $(DOCKER_IMAGE):$(VERSION)
 
-stop: run
+stop:
 	docker stop --name=$(DOCKER_NAME)
 
 status:
-	docker ps
+	docker ps | grep $(DOCKER_NAME)
 
 rmi:
 	docker rmi $$(docker images -f dangling=true -q)
